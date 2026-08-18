@@ -1,0 +1,185 @@
+// ===============================
+// 1) ĐỔI MẬT KHẨU Ở ĐÂY
+// ===============================
+const PASSWORD = "123456";
+
+// ===============================
+// 2) DỮ LIỆU TRUYỆN
+// Thêm truyện/chương ở khu vực này.
+// ===============================
+const stories = [
+  {
+    id: "livestream",
+    title: "Nhật Ký Livestream Nấu Ăn Giữa Các Vì Sao",
+    author: "Hắc Miêu Bạch Bạch",
+    genres: ["Đam mỹ", "Tinh tế", "Mỹ thực"],
+    status: "Đang cập nhật",
+    cover: "",
+    description: "Truyện mẫu để bạn thử hệ thống web. Sau này thay bằng phần giới thiệu thật.",
+    chapters: [
+      {title:"Chương 1", text:"Đây là nội dung chương 1 thử nghiệm.\n\nBạn có thể thay toàn bộ phần này bằng nội dung truyện thật."},
+      {title:"Chương 2", text:"Đây là nội dung chương 2 thử nghiệm.\n\nMỗi chương có thể viết dài tùy ý."},
+      {title:"Chương 3", text:"Đây là nội dung chương 3 thử nghiệm.\n\nSau này bạn chỉ cần thêm chương vào danh sách."}
+    ]
+  }
+];
+
+let currentStory = null;
+let currentChapter = 0;
+let fontSize = Number(localStorage.getItem("fontSize") || 18);
+
+const $ = (id) => document.getElementById(id);
+
+function checkLogin(){
+  const value = $("passwordInput").value;
+  if(value === PASSWORD){
+    localStorage.setItem("storyLogin","yes");
+    $("loginScreen").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    showHome();
+  }else{
+    $("loginError").textContent = "Mật khẩu không đúng.";
+  }
+}
+
+$("loginBtn").addEventListener("click", checkLogin);
+$("passwordInput").addEventListener("keydown", e => {
+  if(e.key === "Enter") checkLogin();
+});
+
+if(localStorage.getItem("storyLogin") === "yes"){
+  $("loginScreen").classList.add("hidden");
+  $("app").classList.remove("hidden");
+}
+
+function showHome(){
+  const latest = stories.flatMap(s => s.chapters.map((c,i)=>({story:s,chapter:c,index:i}))).slice(-6).reverse();
+  $("main").innerHTML = `
+    <section class="hero">
+      <h1>Kho Truyện</h1>
+      <p class="muted">Đọc truyện trên điện thoại · Giao diện sáng/tối · Chỉnh cỡ chữ</p>
+      <div class="search">
+        <input id="searchInput" placeholder="🔍 Tìm tên truyện hoặc tác giả..." oninput="searchStories()">
+        <button onclick="showLibrary()">Tất cả</button>
+      </div>
+    </section>
+    <h2>📚 Truyện</h2>
+    <div id="storyGrid" class="grid">${storyCards(stories)}</div>
+  `;
+}
+
+function storyCards(list){
+  if(!list.length) return `<div class="empty">Không tìm thấy truyện.</div>`;
+  return list.map(s => `
+    <article class="card">
+      ${s.cover ? `<img class="cover" src="${escapeAttr(s.cover)}" alt="">` : ""}
+      <h2>${escapeHtml(s.title)}</h2>
+      <div class="meta">${escapeHtml(s.author)} · ${escapeHtml(s.status)}</div>
+      <div class="tags">${s.genres.map(g=>`<span class="tag">${escapeHtml(g)}</span>`).join("")}</div>
+      <button onclick="showStory('${s.id}')">Xem truyện</button>
+    </article>
+  `).join("");
+}
+
+function searchStories(){
+  const q = $("searchInput").value.toLowerCase().trim();
+  const list = stories.filter(s =>
+    s.title.toLowerCase().includes(q) ||
+    s.author.toLowerCase().includes(q) ||
+    s.genres.some(g=>g.toLowerCase().includes(q))
+  );
+  $("storyGrid").innerHTML = storyCards(list);
+}
+
+function showLibrary(){
+  $("main").innerHTML = `
+    <section class="hero">
+      <h1>📚 Danh sách truyện</h1>
+      <div class="search">
+        <input id="searchInput" placeholder="🔍 Tìm truyện..." oninput="searchStories()">
+      </div>
+    </section>
+    <div id="storyGrid" class="grid">${storyCards(stories)}</div>
+  `;
+}
+
+function showStory(id){
+  const s = stories.find(x=>x.id===id);
+  if(!s) return;
+  currentStory = s;
+  $("main").innerHTML = `
+    <button class="back-btn" onclick="showHome()">← Trang chủ</button>
+    <section class="book-head" style="margin-top:15px">
+      ${s.cover ? `<img class="cover" src="${escapeAttr(s.cover)}" alt="">` : `<div class="cover" style="display:flex;align-items:center;justify-content:center;font-size:45px">📖</div>`}
+      <div class="book-info">
+        <h1>${escapeHtml(s.title)}</h1>
+        <p><b>Tác giả:</b> ${escapeHtml(s.author)}</p>
+        <p><b>Trạng thái:</b> ${escapeHtml(s.status)}</p>
+        <div class="tags">${s.genres.map(g=>`<span class="tag">${escapeHtml(g)}</span>`).join("")}</div>
+        <p>${escapeHtml(s.description)}</p>
+      </div>
+    </section>
+    <h2>📑 Danh sách chương (${s.chapters.length})</h2>
+    <div class="chapter-list">
+      ${s.chapters.map((c,i)=>`<button class="chapter-btn" onclick="readChapter('${s.id}',${i})">${escapeHtml(c.title)}</button>`).join("")}
+    </div>
+  `;
+}
+
+function readChapter(id,index){
+  const s = stories.find(x=>x.id===id);
+  if(!s || !s.chapters[index]) return;
+  currentStory=s;
+  currentChapter=index;
+  localStorage.setItem("lastStory",id);
+  localStorage.setItem("lastChapter",String(index));
+  const c=s.chapters[index];
+  const prev=index>0 ? `<button onclick="readChapter('${id}',${index-1})">← Chương trước</button>` : `<button disabled>← Chương trước</button>`;
+  const next=index<s.chapters.length-1 ? `<button onclick="readChapter('${id}',${index+1})">Chương sau →</button>` : `<button disabled>Chương sau →</button>`;
+  $("main").innerHTML=`
+    <div class="reader">
+      <button class="back-btn" onclick="showStory('${id}')">← Danh sách chương</button>
+      <h1>${escapeHtml(c.title)}</h1>
+      <div class="reader-tools">
+        <button onclick="changeFont(-1)">A−</button>
+        <button onclick="resetFont()">A</button>
+        <button onclick="changeFont(1)">A+</button>
+        <button onclick="toggleTheme()">🌙</button>
+      </div>
+      <div id="storyText" class="story-text">${escapeHtml(c.text)}</div>
+      <div class="chapter-nav">${prev}${next}</div>
+    </div>
+  `;
+  applyFont();
+  window.scrollTo(0,0);
+}
+
+function changeFont(n){
+  fontSize=Math.max(14,Math.min(30,fontSize+n));
+  localStorage.setItem("fontSize",fontSize);
+  applyFont();
+}
+function resetFont(){fontSize=18;localStorage.setItem("fontSize",fontSize);applyFont();}
+function applyFont(){
+  const el=$("storyText");
+  if(el) el.style.fontSize=fontSize+"px";
+}
+function toggleTheme(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("darkMode",document.body.classList.contains("dark")?"yes":"no");
+}
+if(localStorage.getItem("darkMode")==="yes") document.body.classList.add("dark");
+
+// Hạn chế copy thông thường.
+document.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("copy",e=>e.preventDefault());
+document.addEventListener("cut",e=>e.preventDefault());
+document.addEventListener("selectstart",e=>e.preventDefault());
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function escapeAttr(str){return escapeHtml(str);}
+
+// Nếu đã đăng nhập thì mở trang chủ.
+if(localStorage.getItem("storyLogin")==="yes") showHome();
